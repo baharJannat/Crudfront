@@ -6,14 +6,23 @@ import Button from "@mui/material/Button";
 import Link from "@mui/material/Link";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Snackbar from "@mui/material/Snackbar";
+import MuiAlert from "@mui/material/Alert";
+import CheckIcon from "@mui/icons-material/Check";
 
+const API = import.meta.env.VITE_API_URL;
 export default function LoginPage() {
   const [info, setInfo] = useState({ email: "", password: "" });
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+
   const navigate = useNavigate();
+  const Alert = React.forwardRef(function Alert(props, ref) {
+    return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
+  });
 
   const handleLogin = async () => {
     try {
-      const response = await fetch("http://localhost:5000/auth/login", {
+      const response = await fetch(`${API}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -23,7 +32,8 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
-        alert("login successful!");
+        setSnackbarOpen(true);
+
         localStorage.setItem("token", data.token);
         navigate("/table");
       } else {
@@ -73,7 +83,7 @@ export default function LoginPage() {
           onChange={(e) => setInfo({ ...info, email: e.target.value })}
         />
         <TextField
-          label="passowrd"
+          label="password"
           type="password"
           variant="outlined"
           sx={{
@@ -90,6 +100,21 @@ export default function LoginPage() {
           Login
         </Button>
       </Box>
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={2000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity="success"
+          icon={<CheckIcon fontSize="inherit" />}
+          sx={{ width: "100%" }}
+        >
+          Login successful!
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

@@ -11,13 +11,22 @@ const CreateButton = ({ onCreate }) => {
   const [age, setAge] = useState("");
   const [email, setEmail] = useState("");
 
-  const handleCreate = () => {
+  // CreateButton.jsx
+  const handleCreate = async () => {
     const newUser = {
-      name: name || "New User",
-      age: age || 30,
-      email: email || "new@example.com",
+      name: (name || "New User").trim(),
+      age: Number(age) || 30,
+      email: (email || `user${Date.now()}@example.com`).trim(), // avoids duplicate default email
     };
-    onCreate(newUser);
+    try {
+      await onCreate(newUser); // relies on Table.handleCreate returning a promise
+      setOpen(false);
+      setName("");
+      setAge("");
+      setEmail("");
+    } catch (e) {
+      alert(e.message || "Create failed");
+    }
   };
 
   const [open, setOpen] = React.useState(false);
@@ -79,13 +88,12 @@ const CreateButton = ({ onCreate }) => {
               marginTop: "5px",
             }}
             variant="outlined"
-           
           />
 
           <Button
             variant="contained"
             onClick={handleCreate}
-            style={{marginTop: "5px" , width:"100%"}}
+            style={{ marginTop: "5px", width: "100%" }}
           >
             Create
           </Button>

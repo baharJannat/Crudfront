@@ -7,6 +7,8 @@ import Link from "@mui/material/Link";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+const API = import.meta.env.VITE_API_URL;
+
 export default function RegisterPage() {
   const [info, setInfo] = useState({
     name: "",
@@ -23,7 +25,7 @@ export default function RegisterPage() {
       return;
     }
     try {
-      const response = await fetch("http://localhost:5000/auth/register", {
+      const response = await fetch(`${API}/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

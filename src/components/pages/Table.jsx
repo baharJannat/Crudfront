@@ -1,12 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Box from "@mui/material/Box";
-import {
-  DataGrid,
-  GridFooterContainer,
-  GridPagination,
-} from "@mui/x-data-grid";
+import { DataGrid, GridFooterContainer, GridPagination } from "@mui/x-data-grid";
 import DeleteButton from "../common/DeleteButton";
-import UpdateButton from "../common/UpdateButton";
 import CreateButton from "../common/CreateButton";
 import PutButton from "../common/PutButton";
 import PatchButton from "../common/PatchButton";
@@ -15,39 +10,41 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import Typography from "@mui/material/Typography";
 
-function CustomFooter({
-  selectedIds,
-  // selectedUsers,
-  onDelete,
-  onCreate,
-  onPut,
-  onPatch,
-  users,
-}) {
-  console.log("selectedIds:", selectedIds);
-
+function CustomFooter({ selectedIds, onDelete, onCreate, onPut, onPatch, users }) {
   return (
     <GridFooterContainer>
       <DeleteButton selectedIds={selectedIds} onDelete={onDelete} />
-      <PutButton selectedIds={selectedIds} onPut={onPut} />
+      <PutButton
+        selectedIds={selectedIds}
+        selectedUsers={users.filter((u) => selectedIds.includes((u._id ?? "").toString()))}
+        onPut={onPut}
+      />
       <PatchButton
         selectedIds={selectedIds}
-        selectedUsers={users.filter((u) =>
-          selectedIds.includes((u._id ?? "").toString())
-        )}
+        selectedUsers={users.filter((u) => selectedIds.includes((u._id ?? "").toString()))}
         onPatch={onPatch}
       />
-
       <CreateButton onCreate={onCreate} />
       <GridPagination />
     </GridFooterContainer>
   );
 }
 
+// ✅ fallback for local dev if env is missing
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+const authHeaders = () => {
+  const token = localStorage.getItem("token");
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
+
 function Table() {
   const [users, setUsers] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
-  const [updatedRows, setUpdatedRows] = useState({});
+  const [updatedRows, setUpdatedRows] = useState({}); // { [id]: full row }
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
 
@@ -55,104 +52,112 @@ function Table() {
     fetchUsers();
   }, []);
 
-  const fetchUsers = () => {
-    fetch("http://localhost:5000/users")
-      .then((res) => res.json())
-      .then(setUsers)
-      .catch((err) => console.error(err));
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch(`${API}/users`, { headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Fetch users failed");
+      setUsers(data);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to load users. Are you logged in and is the API reachable?");
+    }
   };
 
-  const handleDelete = (ids) => {
-    Promise.all(
+  const handleDelete = async (ids) => {
+    await Promise.all(
       ids.map((id) =>
-        fetch(`http://localhost:5000/users/${id}`, {
-          method: "DELETE",
-        })
+        fetch(`${API}/users/${id}`, { method: "DELETE", headers: authHeaders() })
       )
-    )
-      .then(fetchUsers)
-      .catch(console.error);
+    );
+    await fetchUsers();
+    setSelectedIds([]);
   };
 
-  const handleCreate = (user) => {
-    fetch("http://localhost:5000/users", {
+  const handleCreate = async (user) => {
+    const res = await fetch(`${API}/users`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(user),
-    })
-      .then(fetchUsers)
-      .catch(console.error);
+      headers: authHeaders(),
+      body: JSON.stringify({ ...user, age: Number(user.age) }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || `Create failed (${res.status})`);
+    await fetchUsers();
   };
 
-  const handlePut = (ids) => {
-    const updates = ids.map((id) => updatedRows[id]).filter(Boolean);
+  // ✅ PUT must send full document (name, age, email). Use updatedRows (not "edited")
+  const handlePut = async (ids, fullBody = null) => {
+    try {
+      const payloads =
+        fullBody && ids.length === 1
+          ? [{ id: ids[0], ...fullBody }]
+          : ids.map((id) => ({ id, ...(updatedRows[id] || {}) }));
 
-    if (updates.length === 0) {
-      alert("No PUT updates to apply.");
-      return;
+      // Basic validation to avoid sending empty bodies
+      for (const p of payloads) {
+        if (!p.name || !p.email || Number.isNaN(Number(p.age))) {
+          throw new Error("PUT requires name, valid age, and email for each selected row.");
+        }
+      }
+
+      await Promise.all(
+        payloads.map((p) =>
+          fetch(`${API}/users/${p.id}`, {
+            method: "PUT",
+            headers: authHeaders(),
+            body: JSON.stringify({
+              name: p.name,
+              age: Number(p.age),
+              email: p.email,
+            }),
+          })
+        )
+      );
+      setUpdatedRows({});
+      await fetchUsers();
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "PUT failed.");
     }
-
-    Promise.all(
-      updates.map((row) =>
-        fetch(`http://localhost:5000/users/${row.id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(row),
-        })
-      )
-    )
-      .then(() => {
-        setUpdatedRows({});
-        fetchUsers();
-      })
-      .catch(console.error);
   };
 
-  const handlePatch = (ids, patchData = null) => {
-    let updates=[];
-    if (patchData && Object.keys(patchData).length > 0) {
-    updates = ids.map((id) => ({ id, ...patchData }));
-    } else {
-      updates = ids.map((id) => updatedRows[id]).filter(Boolean);
-    }
+  // ✅ PATCH sends only changed fields; derive from updatedRows if no dialog body provided
+  const handlePatch = async (ids, patchBody = null) => {
+    try {
+      const payloads =
+        patchBody && Object.keys(patchBody).length > 0
+          ? ids.map((id) => ({ id, ...patchBody }))
+          : ids.map((id) => ({ id, ...(updatedRows[id] || {}) }));
 
-    if (updates.length === 0) {
-      alert("No PATCH updates to apply.");
-      return;
+      await Promise.all(
+        payloads.map(({ id, ...body }) =>
+          fetch(`${API}/users/${id}`, {
+            method: "PATCH",
+            headers: authHeaders(),
+            body: JSON.stringify(body),
+          })
+        )
+      );
+      setUpdatedRows({});
+      await fetchUsers();
+    } catch (err) {
+      console.error(err);
+      alert("PATCH failed.");
     }
-
-    Promise.all(
-      updates.map((row) =>
-        fetch(`http://localhost:5000/users/${row.id}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(row),
-        })
-      )
-    )
-      .then(() => {
-        setUpdatedRows({});
-        fetchUsers();
-      })
-      .catch(console.error);
   };
+
   const columns = [
+    { field: "id", headerName: "ID", editable: false }, // ✅ keep ID read-only
     { field: "name", headerName: "Name", editable: true },
     { field: "age", headerName: "Age", type: "number", editable: true },
     { field: "email", headerName: "Email", editable: true },
   ];
 
-  const rows = users.map((user, index) => ({
-    id: user._id || index,
-    name: user.name,
-    age: user.age,
-    email: user.email,
+  const rows = users.map((u) => ({
+    id: (u._id ?? "").toString(),
+    name: u.name,
+    age: u.age,
+    email: u.email,
   }));
 
   return (
@@ -172,17 +177,27 @@ function Table() {
             />
           ),
         }}
-        onRowDoubleClick={(params) => {
-          setSelectedRow(params.row);
-          setDialogOpen(true);
+        onRowDoubleClick={async (params) => {
+          try {
+            const res = await fetch(`${API}/users/${params.row.id}`, { headers: authHeaders() });
+            if (!res.ok) throw new Error(`Failed to fetch user (${res.status})`);
+            const user = await res.json();
+            setSelectedRow(user);
+            setDialogOpen(true);
+          } catch (err) {
+            console.error("Error fetching user:", err);
+            alert("Could not fetch user details.");
+          }
         }}
         onRowSelectionModelChange={(newSelection) => {
-          const ids = Array.isArray(newSelection) // v6 and below
+          // DataGrid v6 returns an array; keep defensive fallback
+          const ids = Array.isArray(newSelection)
             ? newSelection
-            : Array.from(newSelection?.ids ?? []); // v7
-          setSelectedIds(ids); // now ["6888964cfdf6f338719494f0"]
+            : Array.from(newSelection?.ids ?? []);
+          setSelectedIds(ids);
         }}
         processRowUpdate={(newRow) => {
+          // Keep latest edits per row id
           setUpdatedRows((prev) => ({ ...prev, [newRow.id]: newRow }));
           return newRow;
         }}
@@ -190,6 +205,7 @@ function Table() {
         checkboxSelection
         disableRowSelectionOnClick
       />
+
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
         <DialogTitle>User Information</DialogTitle>
         <DialogContent>

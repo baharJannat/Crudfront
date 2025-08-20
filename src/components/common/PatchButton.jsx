@@ -19,7 +19,11 @@ export default function PatchButton({
   };
   const handleOpen = () => {
     if (selectedUsers.length === 0) {
-      alert("Select at least one user for PATCH updateeee!");
+      alert("Select at least one user for PATCH update!");
+      return;
+    }
+    if (selectedUsers.length > 1) {
+      alert("you can only select one at a time");
       return;
     }
     const user = selectedUsers[0];
@@ -36,7 +40,7 @@ export default function PatchButton({
 
   const handlePatch = () => {
     if (selectedIds.length === 0) {
-      alert("select at least one user for PATCH updateeeeee!");
+      alert("select at least one user for PATCH update!");
       return;
     }
 
@@ -44,7 +48,7 @@ export default function PatchButton({
     if (name !== "") payload.name = name;
     if (age !== "") payload.age = +age; // convert to number if you like
     if (email !== "") payload.email = email;
-    
+
     onPatch(selectedIds, payload);
     setOpen(false);
   };
@@ -58,57 +62,58 @@ export default function PatchButton({
         PATCH
       </Button>
 
-      <Box sx={{ display: "flex", flexDirection: "column" }}>
+      <Box>
         <Backdrop
-          sx={(theme) => ({ color: "#fff", zIndex: theme.zIndex.drawer + 1 })}
+          sx={(theme) => ({ color: "#fff", zIndex: theme.zIndex.drawer + 1})}
           open={open}
         >
-          <button
-            onClick={handleClose}
-            style={{ alignSelf: "flex-end", cursor: "pointer" }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "#000")}
-          >
-            X
-          </button>
-          <TextField
-            label="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            sx={{
-              backgroundColor: "white",
-              borderRadius: "5px",
-              marginTop: "5px",
-            }}
-          />
-          <TextField
-            label="age"
-            value={age}
-            onChange={(e) => setAge(e.target.value)}
-            sx={{
-              backgroundColor: "white",
-              borderRadius: "5px",
-              marginTop: "5px",
-            }}
-          />
-          <TextField
-            label="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            sx={{
-              backgroundColor: "white",
-              borderRadius: "5px",
-              marginTop: "5px",
-            }}
-            variant="outlined"
-          />
+          <Box style={{ display: "flex", flexDirection: "column" }}>
+            <button
+              onClick={handleClose}
+              style={{ alignSelf:"flex-end",cursor: "pointer" , marginBottom:"10px"}}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#000")}
+            >
+              X
+            </button>
+            <TextField
+              label="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              sx={{
+                backgroundColor: "white",
+                borderRadius: "5px",
+              }}
+            />
+            <TextField
+              label="age"
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
+              sx={{
+                backgroundColor: "white",
+                borderRadius: "5px",
+                marginTop: "10px",
+              }}
+            />
+            <TextField
+              label="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              sx={{
+                backgroundColor: "white",
+                borderRadius: "5px",
+                marginTop: "10px",
+              }}
+              variant="outlined"
+            />
 
-          <Button
-            variant="contained"
-            onClick={handlePatch}
-            style={{ marginLeft: "16px", backgroundColor: "#1976d2" }}
-          >
-            PATCH
-          </Button>
+            <Button
+              variant="contained"
+              onClick={handlePatch}
+              style={{ marginTop: "10px", backgroundColor: "#1976d2" }}
+            >
+              PATCH
+            </Button>
+          </Box>
         </Backdrop>
       </Box>
     </div>
