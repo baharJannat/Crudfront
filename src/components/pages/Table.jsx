@@ -10,6 +10,9 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import Typography from "@mui/material/Typography";
 
+// ✅ NEW: use shared Basic-auth helper (put src/auth.js at project root under src/)
+import { getApiUrl, authHeaders } from "../../auth"; // adjust path if your Table.jsx is elsewhere
+
 function CustomFooter({ selectedIds, onDelete, onCreate, onPut, onPatch, users }) {
   return (
     <GridFooterContainer>
@@ -30,17 +33,6 @@ function CustomFooter({ selectedIds, onDelete, onCreate, onPut, onPatch, users }
   );
 }
 
-// ✅ fallback for local dev if env is missing
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
-
-const authHeaders = () => {
-  const token = localStorage.getItem("token");
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-};
-
 function Table() {
   const [users, setUsers] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -54,7 +46,13 @@ function Table() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch(`${API}/users`, { headers: authHeaders() });
+      const res = await fetch(`${getApiUrl()}/users`, {
+        // ✅ now uses Basic headers
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Fetch users failed");
       setUsers(data);
@@ -67,7 +65,12 @@ function Table() {
   const handleDelete = async (ids) => {
     await Promise.all(
       ids.map((id) =>
-        fetch(`${API}/users/${id}`, { method: "DELETE", headers: authHeaders() })
+        fetch(`${getApiUrl()}/users/${id}`, {
+          method: "DELETE",
+          headers: {
+            ...authHeaders(), // ✅ Basic
+          },
+        })
       )
     );
     await fetchUsers();
@@ -75,9 +78,12 @@ function Table() {
   };
 
   const handleCreate = async (user) => {
-    const res = await fetch(`${API}/users`, {
+    const res = await fetch(`${getApiUrl()}/users`, {
       method: "POST",
-      headers: authHeaders(),
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(), // ✅ Basic
+      },
       body: JSON.stringify({ ...user, age: Number(user.age) }),
     });
     const data = await res.json().catch(() => ({}));
@@ -102,9 +108,12 @@ function Table() {
 
       await Promise.all(
         payloads.map((p) =>
-          fetch(`${API}/users/${p.id}`, {
+          fetch(`${getApiUrl()}/users/${p.id}`, {
             method: "PUT",
-            headers: authHeaders(),
+            headers: {
+              "Content-Type": "application/json",
+              ...authHeaders(), // ✅ Basic
+            },
             body: JSON.stringify({
               name: p.name,
               age: Number(p.age),
@@ -131,9 +140,12 @@ function Table() {
 
       await Promise.all(
         payloads.map(({ id, ...body }) =>
-          fetch(`${API}/users/${id}`, {
+          fetch(`${getApiUrl()}/users/${id}`, {
             method: "PATCH",
-            headers: authHeaders(),
+            headers: {
+              "Content-Type": "application/json",
+              ...authHeaders(), // ✅ Basic
+            },
             body: JSON.stringify(body),
           })
         )
@@ -179,7 +191,12 @@ function Table() {
         }}
         onRowDoubleClick={async (params) => {
           try {
-            const res = await fetch(`${API}/users/${params.row.id}`, { headers: authHeaders() });
+            const res = await fetch(`${getApiUrl()}/users/${params.row.id}`, {
+              headers: {
+                "Content-Type": "application/json",
+                ...authHeaders(), // ✅ Basic
+              },
+            });
             if (!res.ok) throw new Error(`Failed to fetch user (${res.status})`);
             const user = await res.json();
             setSelectedRow(user);

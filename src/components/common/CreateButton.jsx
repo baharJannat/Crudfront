@@ -1,41 +1,55 @@
-import React from "react";
+import React, { useState } from "react";
 import Button from "@mui/material/Button";
-import { useState } from "react";
 import Backdrop from "@mui/material/Backdrop";
-
 import TextField from "@mui/material/TextField";
 import Box from "@mui/material/Box";
 
-const CreateButton = ({ onCreate }) => {
+// ✅ import API + Basic headers
+import { getApiUrl, authHeaders } from "../../auth";
+
+const CreateButton = ({ onCreated }) => {
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [email, setEmail] = useState("");
+  const [open, setOpen] = useState(false);
 
-  // CreateButton.jsx
+  const handleClose = () => setOpen(false);
+  const handleOpen = () => setOpen(true);
+
+  // ✅ create user directly with fetch + Basic auth
   const handleCreate = async () => {
     const newUser = {
       name: (name || "New User").trim(),
       age: Number(age) || 30,
-      email: (email || `user${Date.now()}@example.com`).trim(), // avoids duplicate default email
+      email: (email || `user${Date.now()}@example.com`).trim(),
+      password: "secret123", // required by backend schema
     };
+
     try {
-      await onCreate(newUser); // relies on Table.handleCreate returning a promise
+      const res = await fetch(`${getApiUrl()}/users`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+        body: JSON.stringify(newUser),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Create failed");
+
+      // reset UI
       setOpen(false);
       setName("");
       setAge("");
       setEmail("");
-    } catch (e) {
-      alert(e.message || "Create failed");
+
+      if (onCreated) onCreated(data); // optional callback to refresh table
+    } catch (err) {
+      alert(err.message || "Create failed");
     }
   };
 
-  const [open, setOpen] = React.useState(false);
-  const handleClose = () => {
-    setOpen(false);
-  };
-  const handleOpen = () => {
-    setOpen(true);
-  };
   return (
     <Box>
       <Button
@@ -43,7 +57,7 @@ const CreateButton = ({ onCreate }) => {
         variant="contained"
         style={{ marginLeft: "16px" }}
       >
-        create
+        Create
       </Button>
 
       <Backdrop
@@ -62,32 +76,19 @@ const CreateButton = ({ onCreate }) => {
             label="Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            sx={{
-              backgroundColor: "white",
-              borderRadius: "5px",
-              marginTop: "5px",
-            }}
+            sx={{ backgroundColor: "white", borderRadius: "5px", marginTop: "5px" }}
           />
           <TextField
-            label="age"
+            label="Age"
             value={age}
             onChange={(e) => setAge(e.target.value)}
-            sx={{
-              backgroundColor: "white",
-              borderRadius: "5px",
-              marginTop: "5px",
-            }}
+            sx={{ backgroundColor: "white", borderRadius: "5px", marginTop: "5px" }}
           />
           <TextField
-            label="email"
+            label="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            sx={{
-              backgroundColor: "white",
-              borderRadius: "5px",
-              marginTop: "5px",
-            }}
-            variant="outlined"
+            sx={{ backgroundColor: "white", borderRadius: "5px", marginTop: "5px" }}
           />
 
           <Button

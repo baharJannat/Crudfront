@@ -1,15 +1,31 @@
 import React from "react";
 import Button from "@mui/material/Button";
+import { getApiUrl, authHeaders } from "../../auth";
 
-const DeleteButton = ({ selectedIds, onDelete }) => {
-  const handleDelete = () => {
-    if (selectedIds.length === 0) return;
+const DeleteButton = ({ selectedIds, onDelete  }) => {
+  const handleDelete = async () => {
+    if (!selectedIds || selectedIds.length === 0) return;
 
     const confirmed = window.confirm(
       `Are you sure you want to delete ${selectedIds.length} user(s)?`
     );
-    if (confirmed) {
-      onDelete(selectedIds);
+    if (!confirmed) return;
+
+    try {
+      await Promise.all(
+        selectedIds.map((id) =>
+          fetch(`${getApiUrl()}/users/${id}`, {
+            method: "DELETE",
+            headers: {
+              ...authHeaders(),
+            },
+          })
+        )
+      );
+
+      if (onDelete ) onDelete (selectedIds); // optional callback to refresh table
+    } catch (err) {
+      alert(err.message || "Delete failed");
     }
   };
 

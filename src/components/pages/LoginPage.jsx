@@ -1,47 +1,61 @@
-import React from "react";
+import React, { useState } from "react";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Link from "@mui/material/Link";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import Snackbar from "@mui/material/Snackbar";
 import MuiAlert from "@mui/material/Alert";
 import CheckIcon from "@mui/icons-material/Check";
+import { useNavigate } from "react-router-dom";
 
-const API = import.meta.env.VITE_API_URL;
+// ✅ Basic-auth helper (place src/auth.js in your front app)
+import { getApiUrl, authHeaders, setBasicAuth, clearAuth } from "../../auth";
+
 export default function LoginPage() {
   const [info, setInfo] = useState({ email: "", password: "" });
   const [snackbarOpen, setSnackbarOpen] = useState(false);
-
   const navigate = useNavigate();
+
   const Alert = React.forwardRef(function Alert(props, ref) {
     return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
   });
 
   const handleLogin = async () => {
+    const email = (info.email || "").trim();
+    const password = info.password || "";
+
+    if (!email || !password) {
+      alert("Please enter both email and password.");
+      return;
+    }
+
     try {
-      const response = await fetch(`${API}/auth/login`, {
-        method: "POST",
+      // store Basic creds temporarily
+      setBasicAuth(email, password);
+
+      // verify by calling a Basic-protected endpoint
+      const res = await fetch(`${getApiUrl()}/users`, {
         headers: {
           "Content-Type": "application/json",
+          ...authHeaders(),
         },
-        body: JSON.stringify(info),
       });
-      const data = await response.json();
 
-      if (response.ok) {
+      if (res.ok) {
         setSnackbarOpen(true);
-
-        localStorage.setItem("token", data.token);
+        // optional: await a short delay so user sees the snackbar
+        // setTimeout(() => navigate("/table"), 400);
         navigate("/table");
       } else {
-        alert(data.message || "Invalid emaillllll or password");
+        clearAuth();
+        const data = await res.json().catch(() => ({}));
+        alert(data.message || "Invalid email or password");
       }
     } catch (error) {
+      clearAuth();
       console.error("Login error:", error);
-      alert("something went wrong! please try again.");
+      alert("Something went wrong! Please try again.");
     }
   };
 
@@ -71,35 +85,34 @@ export default function LoginPage() {
         <Typography variant="h3" gutterBottom>
           Login
         </Typography>
+
         <TextField
           label="email"
           type="email"
           variant="outlined"
-          sx={{
-            m: 2,
-            width: "70%",
-          }}
+          sx={{ m: 2, width: "70%" }}
           value={info.email}
           onChange={(e) => setInfo({ ...info, email: e.target.value })}
         />
+
         <TextField
           label="password"
           type="password"
           variant="outlined"
-          sx={{
-            m: 2,
-            width: "70%",
-          }}
+          sx={{ m: 2, width: "70%" }}
           value={info.password}
           onChange={(e) => setInfo({ ...info, password: e.target.value })}
         />
+
         <Link href="/register" sx={{ fontFamily: "sans-serif", mb: 2 }}>
-          Don't have an acoount? click here!
+          Don&apos;t have an account? click here!
         </Link>
+
         <Button variant="contained" onClick={handleLogin}>
           Login
         </Button>
       </Box>
+
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={2000}
